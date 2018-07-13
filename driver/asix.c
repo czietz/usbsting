@@ -537,7 +537,7 @@ static long asix_init(struct ueth_data  *dev)
         link_detected = asix_mdio_read(dev, dev->phy_id, MII_BMSR) &
             BMSR_LSTATUS;
         if (!link_detected) {
-            if (timeout == 0) {
+            if (timeout == 30*TIMEOUT_RESOLUTION) {
                 ALERT(("Waiting for Ethernet connection... "));
             }
             mdelay(TIMEOUT_RESOLUTION);
@@ -545,7 +545,7 @@ static long asix_init(struct ueth_data  *dev)
         }
     } while (!link_detected && timeout < PHY_CONNECT_TIMEOUT);
     if (link_detected) {
-        if (timeout != 0) {
+        if (timeout > 30*TIMEOUT_RESOLUTION) {
             ALERT(("done.\n"));
         }
     } else {
