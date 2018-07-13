@@ -244,8 +244,11 @@ static long ethernet_probe(struct usb_device *dev, unsigned short ifnum)
 
     asix_eth_before_probe(api);
     if (asix_eth_probe(dev, ifnum, &ueth_dev))
-        if (asix_eth_get_info(dev, &ueth_dev, mac))
+        if (asix_eth_get_info(dev, &ueth_dev, mac)) {
+            memcpy(xbase->hwaddr,mac,ETH_ALEN);
+            memcpy(xbase->macaddr,mac,ETH_ALEN);
             rc = 0L;
+        }
 
     usb_disable_asynch(old_async);      /* restore asynch value */
 
