@@ -257,6 +257,7 @@ static long ethernet_probe(struct usb_device *dev, unsigned short ifnum)
 
 static long ethernet_disconnect(struct usb_device *dev)
 {
+    ueth_dev.pusb_dev = 0;
     return 0L;
 }
 
