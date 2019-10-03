@@ -9,5 +9,7 @@ Short setup guide:
 * Reboot.
 * Enable and configure the _USBether_ STinG device in the usual way, setting up IP address, network mask, DNS server, etc. Don't forget to edit STinG's `ROUTE.TAB`.
 
+__Note__: Unfortunately, there are incompatible versions of the USB API that is maintained by the FreeMiNT developers. `usb_asix.stx` has been compiled for the current version 3 of this API. In case your USB drivers still use the old version 1, please download `usb_asix.stx` from https://github.com/czietz/usbsting/tree/3fcca216b5500c756b4f5085be17d246cbae27c5.
+
 Please refer to the appropriate documentation for more information about setting up your respective USB host adapter and the STinG network stack.
 
