@@ -1,8 +1,8 @@
 #
-# Makefile for usb_asix.stx
+# Makefile for usb_net.stx
 #
 
-TARGET = usb_asix.stx
+TARGET = usb_net.stx
 LIBS = 
 CC = m68k-atari-mint-gcc
 LD = $(CC) -mshort
@@ -14,7 +14,7 @@ CFLAGS = $(CPPFLAGS) -m68000 -mshort -fno-builtin -O2 -Wall -Wundef -Wold-style-
 default: $(TARGET)
 all: default
 
-OBJS = init.o usbsting.o arpcache.o asix.o utility.o
+OBJS = init.o usbsting.o arpcache.o asix.o picowifi.o utility.o
 HEADERS = 
 
 %.o: %.c $(HEADERS)

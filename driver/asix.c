@@ -51,7 +51,7 @@ typedef unsigned char  u8;
 
 static void mdelay(int millisecs);
 
-struct usb_module_api *api = NULL;
+static struct usb_module_api *api = NULL;
 
 /*
  * Glue defines

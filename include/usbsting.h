@@ -1,7 +1,9 @@
 /*
- * usbsting.h: header for STiNG USB Ethernet driver (w/ASIX chipset)
+ * usbsting.h: header for STiNG USB Ethernet driver
  *
  * Copyright Roger Burrows (June 2018), based on unpublished SCSILINK code
+ *
+ * Modified for PicoWifi adapter by Christian Zietz 2022.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -42,7 +44,7 @@ typedef unsigned char uchar;
  */
 #define ETH_ALEN        6           /* HW addr length */
 #define ETH_HLEN        14          /* frame header length */
-#define ETH_MIN_DLEN    46          /* minimum data length */
+#define ETH_MIN_DLEN    2           /* minimum data length */
 #define ETH_MAX_DLEN    1500        /* maximum data length */
 
 typedef struct {                /* packet header */
@@ -79,7 +81,7 @@ typedef struct {                /* generic IP ethernet packet */
 typedef struct {                /* ARP ethernet packet */
     ENET_HDR eh;
     ARP      arp;
-    char     padbytes[ETH_MIN_LEN-sizeof(ENET_HDR)-sizeof(ARP)];
+    //char     padbytes[ETH_MIN_LEN-sizeof(ENET_HDR)-sizeof(ARP)];
 } ARP_PACKET;
 
 
@@ -153,9 +155,9 @@ typedef struct
         long wait_dequeued;         /* dequeued */
         long wait_requeued;         /* requeued */
     } arp;
-} ASIX_STATS;
+} USBNET_STATS;
 
-#define ASIX_TRACE_LEN   52
+#define USBNET_TRACE_LEN   52
 typedef struct
 {
     unsigned long time;
@@ -166,8 +168,8 @@ typedef struct
 #define TRACE_WRITE         'W'
     char reserved;
     short length;
-    uchar data[ASIX_TRACE_LEN];
-} ASIX_TRACE;
+    uchar data[USBNET_TRACE_LEN];
+} USBNET_TRACE;
 
 typedef struct                  /* data returned by CTL_ETHER_GET_ARPTABLE */
 {

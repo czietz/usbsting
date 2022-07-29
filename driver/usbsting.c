@@ -1,11 +1,13 @@
 /*
  * main line code for STinG port driver, for USB ethernet devices
- * using the ASIX chip set
+ * using the ASIX chip set and the PicoWifi adapter
  *
  * Module to install and activate the port and to interface with,
  * transmit to, and receive from, the STinG kernel.
  *
  * Copyright Roger Burrows (June 2018), based on unpublished SCSILINK code
+ *
+ * Modified for PicoWifi adapter by Christian Zietz 2022.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -41,19 +43,20 @@
 #include "usbsting.h"   /* application-specific */
 #include "arpcache.h"
 #include "asix.h"
+#include "picowifi.h"
 
 /*
  *  program parameters
  */
-#define DRIVER_NAME     "USB_ASIX.STX"
+#define DRIVER_NAME     "USB_NET.STX"
                                 /* the following values are returned to STinG */
-#define MODULE_NAME     "USB Asix"
-#define MODULE_VERSION  "00.40"
-#define MODULE_DAY      28
-#define MODULE_MONTH    06
-#define MODULE_YEAR     2018
+#define MODULE_NAME     "USB Network"
+#define MODULE_VERSION  "00.50"
+#define MODULE_DAY      31
+#define MODULE_MONTH    07
+#define MODULE_YEAR     2022
 #define MODULE_DATE     (((MODULE_YEAR-1980)<<9)|(MODULE_MONTH<<5)|(MODULE_DAY))    /* GEMDOS internal format */
-#define MODULE_AUTHOR   "Roger Burrows"
+#define MODULE_AUTHOR   "Roger Burrows & Christian Zietz"
 
 #ifdef TRACE
   #define TRACE_ENTRIES 1000
@@ -82,14 +85,14 @@ struct extended_port {              /* extended PORT structure */
     char interface_up;
     char hwaddr[ETH_ALEN];              /* set from hardware */
     char macaddr[ETH_ALEN];             /* initially the same as hwaddr[], updated by CTL_ETHER_SET_MAC */
-    ASIX_STATS stats;
+    USBNET_STATS stats;
     char name[16];
 #ifdef TRACE
     struct {                            /* trace table */
-        ASIX_TRACE *next;
-        ASIX_TRACE *first;
-        ASIX_TRACE *last;
-        ASIX_TRACE entry[TRACE_ENTRIES];
+        USBNET_TRACE *next;
+        USBNET_TRACE *first;
+        USBNET_TRACE *last;
+        USBNET_TRACE entry[TRACE_ENTRIES];
     } trace;
 #endif
 };
@@ -161,7 +164,7 @@ int16 arpcache_entries = 0;         /* returned by arp_init() */
 
 struct extended_port *xbase;        /* ptr to extended port structure */
 
-DRIVER asix_driver =                /* this is hooked into STinG's driver chain */
+DRIVER usbnet_driver =              /* this is hooked into STinG's driver chain */
 {
     set_device_state, control_device, send_dgrams, receive_dgrams,
     MODULE_NAME, MODULE_VERSION, MODULE_DATE, MODULE_AUTHOR,
@@ -178,7 +181,7 @@ STX *stx;
 static char *suppHardware[] =
 {
     "No selection",
-    "USB Asix",
+    "USB Network",
     NULL
 };
 
@@ -209,6 +212,9 @@ static unsigned char mac[ETH_ALEN];
 *       USB DEVICE INTERFACE        *
 *                                   *
 ************************************/
+
+static int asix_found = 0;
+static int picowifi_found = 0;
 
 static long ethernet_probe(struct usb_device *dev, unsigned short ifnum);
 static long ethernet_disconnect(struct usb_device *dev);
@@ -243,14 +249,26 @@ static long ethernet_probe(struct usb_device *dev, unsigned short ifnum)
     old_async = usb_disable_asynch(1);  /* asynch transfer not allowed */
 
     asix_eth_before_probe(api);
-    if (asix_eth_probe(dev, ifnum, &ueth_dev))
+    picowifi_eth_before_probe(api);
+    if (asix_eth_probe(dev, ifnum, &ueth_dev)) {
         if (asix_eth_get_info(dev, &ueth_dev, mac)) {
             if (xbase != NULL) {
                 memcpy(xbase->hwaddr,mac,ETH_ALEN);
                 memcpy(xbase->macaddr,mac,ETH_ALEN);
             }
+            asix_found = 1;
             rc = 0L;
         }
+    } else if (picowifi_eth_probe(dev, ifnum, &ueth_dev)) {
+        if (picowifi_eth_get_info(dev, &ueth_dev, mac)) {
+            if (xbase != NULL) {
+                memcpy(xbase->hwaddr,mac,ETH_ALEN);
+                memcpy(xbase->macaddr,mac,ETH_ALEN);
+            }
+            picowifi_found = 1;
+            rc = 0L;
+        }
+    } 
 
     usb_disable_asynch(old_async);      /* restore asynch value */
 
@@ -371,8 +389,8 @@ DRIVER *driver;
      */
     while (driver->next)                /* find end of driver chain */
         driver = driver->next;
-    asix_driver.basepage = BasPag;
-    driver->next = &asix_driver;        /* add driver to end of chain */
+    usbnet_driver.basepage = BasPag;
+    driver->next = &usbnet_driver;        /* add driver to end of chain */
 
     /*
      *  initialise arp stuff
@@ -424,7 +442,7 @@ static void init_ext_port(struct extended_port *x)
     x->port.stat_rcv_data = 0L;
     x->port.receive = NULL;
     x->port.stat_dropped = 0;
-    x->port.driver = &asix_driver;
+    x->port.driver = &usbnet_driver;
     x->port.next = NULL;
     x->magic = EXTPORT_MAGIC;
     x->unused = '\0';
@@ -593,15 +611,15 @@ static int16 type = -1;
     case CTL_ETHER_GET_TYPE:
         *((int16 *) argument) = type;
         break;
-    case CTL_ETHER_GET_STAT:                /* returns a copy of ASIX_STATS */
+    case CTL_ETHER_GET_STAT:                /* returns a copy of USBNET_STATS */
         memcpy(x->stats.hwaddr,x->hwaddr,ETH_ALEN);
         memcpy(x->stats.macaddr,x->macaddr,ETH_ALEN);
         x->stats.arp_entries = arp_count(); /* get entry counts */
         x->stats.trace_entries = TRACE_ENTRIES;
-        *((ASIX_STATS *)argument) = x->stats;
+        *((USBNET_STATS *)argument) = x->stats;
         break;
-    case CTL_ETHER_CLR_STAT:                /* sets all entries in ASIX_STATS to 0 */
-        memset((char *)&x->stats,0,sizeof(ASIX_STATS));
+    case CTL_ETHER_CLR_STAT:                /* sets all entries in USBNET_STATS to 0 */
+        memset((char *)&x->stats,0,sizeof(USBNET_STATS));
         break;
     case CTL_ETHER_GET_ARPTABLE:            /* returns ARP table */
         arp_table((ARP_INFO *)argument);
@@ -611,7 +629,7 @@ static int16 type = -1;
         break;
 #ifdef TRACE
     case CTL_ETHER_GET_TRACE:               /* returns trace table */
-        memcpy((char *)argument,x->trace.first,TRACE_ENTRIES*sizeof(ASIX_TRACE));
+        memcpy((char *)argument,x->trace.first,TRACE_ENTRIES*sizeof(USBNET_TRACE));
         break;
     case CTL_ETHER_CLR_TRACE:               /* clears trace */
         trace_init(x);
@@ -948,11 +966,15 @@ static int16 close_device(struct extended_port *x)
  */
 static int16 write_device(struct extended_port *x, char *buffer, int length)
 {
-long rc;
+long rc = -1;
 
     x->stats.write.total_packets++;
 
-    rc = asix_send(&ueth_dev, buffer, length);
+    if (asix_found)
+        rc = asix_send(&ueth_dev, buffer, length);
+    else if (picowifi_found)
+        rc = picowifi_send(&ueth_dev, buffer, length);
+
     trace(x, TRACE_WRITE, rc, length, buffer);
 
     if (rc < 0L)
@@ -972,11 +994,14 @@ long rc;
  */
 static int16 read_device(struct extended_port *x,ENET_PACKET *ip)
 {
-long rc;
+long rc = -1;
 
     x->stats.read.total_packets++;
 
-    rc = asix_recv(&ueth_dev,(unsigned char *)ip,ETH_MAX_LEN);
+    if (asix_found)
+        rc = asix_recv(&ueth_dev,(unsigned char *)ip,ETH_MAX_LEN);
+    else if (picowifi_found)
+        rc = picowifi_recv(&ueth_dev,(unsigned char *)ip,ETH_MAX_LEN);
 
     if (rc)
         trace(x,TRACE_READ,rc,rc,(char *)ip);
@@ -994,7 +1019,7 @@ long rc;
  */
 static int16 get_mac_address(struct extended_port *x,char *macaddr)
 {
-int16 super, rc;
+int16 super, rc=-1;
 char *oldstack;
 
     /*
@@ -1006,8 +1031,11 @@ char *oldstack;
     super = (int16)Super((void *)1L);
     if (!super)                         /* not supervisor: switch */
         oldstack = (char *)Super((void *)0L);
-
-    rc = (int16)asix_read_mac(&ueth_dev,(unsigned char *)macaddr);
+    
+    if (asix_found)
+        rc = (int16)asix_read_mac(&ueth_dev,(unsigned char *)macaddr);
+    else if (picowifi_found)
+        rc = (int16)picowifi_read_mac(&ueth_dev,(unsigned char *)macaddr);
 
     trace(x,TRACE_MAC_GET,rc,ETH_ALEN,macaddr);
 
@@ -1023,7 +1051,7 @@ char *oldstack;
  */
 static void trace_init(struct extended_port *x)
 {
-ASIX_TRACE *t;
+USBNET_TRACE *t;
 int32 i;
 
     for (i = 0, t = x->trace.entry; i < TRACE_ENTRIES; i++, t++)
@@ -1035,7 +1063,7 @@ int32 i;
  */
 static void trace(struct extended_port *x,char type,long rc,int length,char *data)
 {
-ASIX_TRACE *t;
+USBNET_TRACE *t;
 
     t = x->trace.next++;
     t->time = hz_200;
@@ -1043,7 +1071,7 @@ ASIX_TRACE *t;
     t->type = type;
     t->length = length;
     if (length > 0)
-        memcpy(t->data,data,min(ASIX_TRACE_LEN,length));
+        memcpy(t->data,data,min(USBNET_TRACE_LEN,length));
     if (x->trace.next >= x->trace.last)
         x->trace.next = x->trace.first;
 }
