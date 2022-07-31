@@ -24,7 +24,7 @@ HEADERS =
 	$(CC) $(CFLAGS) -c $< -o $@
 
 $(TARGET): $(OBJS)
-	$(LD) startup.o $(OBJS) $(LIBS) -nostartfiles -s -o ../$@
+	$(LD) startup.o $(OBJS) $(LIBS) -nostdlib -nostartfiles -s -o ../$@ -lgcc
 
 clean:
 	-rm -f ../$(TARGET) $(OBJS)

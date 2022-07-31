@@ -1,5 +1,5 @@
 /*
- *  uatool: control program for USB_ASIX.STX
+ *  uatool: control program for USB_NET.STX
  *
  *  syntax: uatool [-c[a][t]] [filename]
  *      default: report statistics, plus arp cache contents, plus trace table (if present)
@@ -33,11 +33,11 @@
 /*
  *  internal function prototypes
  */
-static int display_arp(char *portname,ASIX_STATS *stats);
-static void display_statistics(char *portname,ASIX_STATS *stats);
-static int display_trace(char *portname,ASIX_STATS *stats);
-static void display_trace_entry(ASIX_TRACE *t);
-static int find_first_entry(int entries,ASIX_TRACE *table);
+static int display_arp(char *portname,USBNET_STATS *stats);
+static void display_statistics(char *portname,USBNET_STATS *stats);
+static int display_trace(char *portname,USBNET_STATS *stats);
+static void display_trace_entry(USBNET_TRACE *t);
+static int find_first_entry(int entries,USBNET_TRACE *table);
 static long get_sting_cookie(void);
 static void quit(char *s);
 static void usage(void);
@@ -51,9 +51,9 @@ static char *format_macaddr(uchar *macaddr);
 /*
  *  globals
  */
-ASIX_STATS stats;
+USBNET_STATS stats;
 ARP_INFO *arp;
-ASIX_TRACE *trace;
+USBNET_TRACE *trace;
 int clear_stats = 0;
 int clear_arp = 0;
 int clear_trace = 0;
@@ -85,7 +85,7 @@ int n, rc, rc2;
         case 'c':
             if (optarg) {
                 for (p = optarg; *p; p++) {
-                    *p = tolower(*p);
+                    *p = *p | 0x20; /* tolower(*p); */
                     if (*p == 'a')
                         clear_arp++;
                     else if (*p == 't')
@@ -167,7 +167,7 @@ int n, rc, rc2;
     return rc;
 }
 
-static int display_arp(char *portname,ASIX_STATS *stats)
+static int display_arp(char *portname,USBNET_STATS *stats)
 {
 ARP_INFO *info;
 int i, rc;
@@ -196,7 +196,7 @@ int i, rc;
     return rc;
 }
 
-static void display_statistics(char *portname,ASIX_STATS *stats)
+static void display_statistics(char *portname,USBNET_STATS *stats)
 {
 long n;
 
@@ -256,9 +256,9 @@ long n;
     fprintf(report,"\r\n");
 }
 
-static int display_trace(char *portname,ASIX_STATS *stats)
+static int display_trace(char *portname,USBNET_STATS *stats)
 {
-ASIX_TRACE *t;
+USBNET_TRACE *t;
 int i, first_entry, rc = -1;
 
     if (stats->trace_entries == 0L)
@@ -268,7 +268,7 @@ int i, first_entry, rc = -1;
     fprintf(report,"-----------\r\n");
     fprintf(report,"Size = %ld entries\r\n\r\n",stats->trace_entries);
 
-    trace = calloc(stats->trace_entries,sizeof(ASIX_TRACE));
+    trace = calloc(stats->trace_entries,sizeof(USBNET_TRACE));
     if (trace) {
         rc = cntrl_port(portname,(long)trace,CTL_ETHER_GET_TRACE);
         if (rc == 0) {
@@ -325,11 +325,11 @@ static void usage(void)
 /*
  *  trace display routines (very similar to MintNet version!)
  */
-static void display_trace_entry(ASIX_TRACE *t)
+static void display_trace_entry(USBNET_TRACE *t)
 {
 uchar *end;
 
-    end = t->data + min(t->length,ASIX_TRACE_LEN);
+    end = t->data + min(t->length,USBNET_TRACE_LEN);
 
     fprintf(report,"%08lx %c %5ld %4d ",t->time,t->type,t->rc,t->length);
 
@@ -338,9 +338,9 @@ uchar *end;
     else display_hex(report,t->data,end);
 }
 
-static int find_first_entry(int entries,ASIX_TRACE *table)
+static int find_first_entry(int entries,USBNET_TRACE *table)
 {
-ASIX_TRACE *t;
+USBNET_TRACE *t;
 unsigned long lowest_time = ULONG_MAX;
 int i, n = 0;
 
