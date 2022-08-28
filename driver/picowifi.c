@@ -195,59 +195,59 @@ static long picowifi_init(struct ueth_data	*dev)
 #define TIMEOUT_RESOLUTION 50	/* ms */
 
 	if (picowifi_load_wificred(&wifi_ssid, &wifi_pass)) {
-		ALERT(("unable to load wifi credentials.\r\n"));
-		return -1;
-	}
-	DEBUGOUT(("Wifi credentials: '%s', '%s'\r\n", wifi_ssid, wifi_pass?wifi_pass:"(no password)"));
-
-	/* Set SSID */
-	len = usb_control_msg(
-	dev->pusb_dev,
-	usb_sndctrlpipe(dev->pusb_dev, 0),
-	VENDOR_REQUEST_WIFI,
-	USB_DIR_OUT | USB_TYPE_VENDOR | USB_RECIP_DEVICE,
-	0,
-	WIFI_SET_SSID,
-	wifi_ssid,
-	strlen(wifi_ssid),
-	USB_CTRL_SET_TIMEOUT);
-
-	if (wifi_pass && (strlen(wifi_pass) > 0)) {
-		/* Set password */
-		len = usb_control_msg(
-		dev->pusb_dev,
-		usb_sndctrlpipe(dev->pusb_dev, 0),
-		VENDOR_REQUEST_WIFI,
-		USB_DIR_OUT | USB_TYPE_VENDOR | USB_RECIP_DEVICE,
-		0,
-		WIFI_SET_PASSWD,
-		wifi_pass,
-		strlen(wifi_pass),
-		USB_CTRL_SET_TIMEOUT);
-
-		/* Connect */
-		len = usb_control_msg(
-		dev->pusb_dev,
-		usb_sndctrlpipe(dev->pusb_dev, 0),
-		VENDOR_REQUEST_WIFI,
-		USB_DIR_OUT | USB_TYPE_VENDOR | USB_RECIP_DEVICE,
-		0x406, /* WPA2/WPA */
-		WIFI_CONNECT,
-		NULL,
-		0,
-		USB_CTRL_SET_TIMEOUT);
+		ALERT(("Trying if credentials are stored on PicoWifi.\r\n"));
 	} else {
-		/* Connect */
+		DEBUGOUT(("Wifi credentials: '%s', '%s'\r\n", wifi_ssid, wifi_pass?wifi_pass:"(no password)"));
+
+		/* Set SSID */
 		len = usb_control_msg(
 		dev->pusb_dev,
 		usb_sndctrlpipe(dev->pusb_dev, 0),
 		VENDOR_REQUEST_WIFI,
 		USB_DIR_OUT | USB_TYPE_VENDOR | USB_RECIP_DEVICE,
-		0, /* open */
-		WIFI_CONNECT,
-		NULL,
 		0,
+		WIFI_SET_SSID,
+		wifi_ssid,
+		strlen(wifi_ssid),
 		USB_CTRL_SET_TIMEOUT);
+
+		if (wifi_pass && (strlen(wifi_pass) > 0)) {
+			/* Set password */
+			len = usb_control_msg(
+			dev->pusb_dev,
+			usb_sndctrlpipe(dev->pusb_dev, 0),
+			VENDOR_REQUEST_WIFI,
+			USB_DIR_OUT | USB_TYPE_VENDOR | USB_RECIP_DEVICE,
+			0,
+			WIFI_SET_PASSWD,
+			wifi_pass,
+			strlen(wifi_pass),
+			USB_CTRL_SET_TIMEOUT);
+
+			/* Connect */
+			len = usb_control_msg(
+			dev->pusb_dev,
+			usb_sndctrlpipe(dev->pusb_dev, 0),
+			VENDOR_REQUEST_WIFI,
+			USB_DIR_OUT | USB_TYPE_VENDOR | USB_RECIP_DEVICE,
+			0x406, /* WPA2/WPA */
+			WIFI_CONNECT,
+			NULL,
+			0,
+			USB_CTRL_SET_TIMEOUT);
+		} else {
+			/* Connect */
+			len = usb_control_msg(
+			dev->pusb_dev,
+			usb_sndctrlpipe(dev->pusb_dev, 0),
+			VENDOR_REQUEST_WIFI,
+			USB_DIR_OUT | USB_TYPE_VENDOR | USB_RECIP_DEVICE,
+			0, /* open */
+			WIFI_CONNECT,
+			NULL,
+			0,
+			USB_CTRL_SET_TIMEOUT);
+		}
 	}
 
 	/* Wait for link */
